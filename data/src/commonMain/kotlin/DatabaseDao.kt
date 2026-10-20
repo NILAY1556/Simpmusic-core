@@ -1671,14 +1671,14 @@ interface DatabaseDao {
     @Query("""
         SELECT DISTINCT a.* FROM album a
         INNER JOIN song s ON s.albumId = a.browseId
-        WHERE s.downloadState = 1 OR s.videoId IN (:cachedIds)
+        WHERE s.downloadState = 3 OR s.videoId IN (:cachedIds)
     """)
     fun getDownloadedAlbums(cachedIds: List<String>): Flow<List<AlbumEntity>>
 
     @Query("""
         SELECT DISTINCT ar.* FROM artist ar
         INNER JOIN song s ON s.artistId LIKE '%' || ar.channelId || '%' ESCAPE '\'
-        WHERE s.downloadState = 1 OR s.videoId IN (:cachedIds)
+        WHERE s.downloadState = 3 OR s.videoId IN (:cachedIds)
     """)
     fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>>
 }
