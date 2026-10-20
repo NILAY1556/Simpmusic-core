@@ -319,19 +319,18 @@ class OfflineDashboardRepositoryImpl(
     }
 
     private fun SongEntity.toContent(): Content {
-        val isSong = (thumbnails?.contains("w544") == true && thumbnails.contains("h544"))
-        val thumbUrl = thumbnails ?: ""
+        val currentThumbs = thumbnails
+        val isSong = currentThumbs != null && currentThumbs.contains("w544") && currentThumbs.contains("h544")
+        val thumbUrl = currentThumbs ?: ""
         val thumb = if (isSong) {
             Thumbnail(height = 544, url = thumbUrl, width = 544)
         } else {
             Thumbnail(height = 720, url = thumbUrl, width = 1280)
         }
-        val artistsList = if (artistName != null) {
-            artistName.mapIndexed { index, name ->
-                Artist(id = artistId?.getOrNull(index) ?: "", name = name)
-            }
-        } else {
-            null
+        val currentArtistNames = artistName
+        val currentArtistIds = artistId
+        val artistsList = currentArtistNames?.mapIndexed { index, name ->
+            Artist(id = currentArtistIds?.getOrNull(index) ?: "", name = name)
         }
         return Content(
             album = albumId?.let { Album(id = it, name = albumName.orEmpty()) },
@@ -360,7 +359,7 @@ class OfflineDashboardRepositoryImpl(
         return Content(
             album = null,
             artists = artistsList,
-            description = year ?: description.takeIf { it.isNotBlank() },
+            description = year ?: description?.takeIf { it.isNotBlank() },
             isExplicit = false,
             playlistId = null,
             browseId = browseId,
@@ -414,7 +413,7 @@ class OfflineDashboardRepositoryImpl(
         } else {
             emptyList()
         }
-        val desc = if (trackCount > 0) "$trackCount tracks" else description.takeIf { it.isNotBlank() }
+        val desc = if (trackCount > 0) "$trackCount tracks" else description?.takeIf { it.isNotBlank() }
         val authorArtist = author?.takeIf { it.isNotBlank() }?.let { listOf(Artist(id = "", name = it)) }
         return Content(
             album = null,
