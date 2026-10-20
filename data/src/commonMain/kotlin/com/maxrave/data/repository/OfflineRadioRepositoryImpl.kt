@@ -44,12 +44,11 @@ class OfflineRadioRepositoryImpl(
                     song.title.isNotBlank() &&
                     song.durationSeconds > 0 &&
                     !song.isLive &&
+                    song.videoId != seedTrack.videoId &&
                     song.videoId !in excludeVideoIds
             }
 
         if (pool.isEmpty()) return emptyList()
-        if (pool.size <= limit) return pool.map { it.toTrack() }
-
         val preSeededIds = databaseDao.getRadioSeedsForTrack(seedTrack.videoId).firstOrNull().orEmpty()
         val poolByVideoId = pool.associateBy { it.videoId }
         val tier1Matches = preSeededIds.mapNotNull { poolByVideoId[it] }.distinctBy { it.videoId }
@@ -79,9 +78,9 @@ class OfflineRadioRepositoryImpl(
     ): List<SongEntity> {
         val seedPrimaryArtistId = seedTrack.artists?.firstOrNull()?.id?.takeIf { it.isNotBlank() }
         val seedPrimaryArtistName = seedTrack.artists?.firstOrNull()?.name?.takeIf { it.isNotBlank() }
-        val allSeedArtistIds = seedTrack.artists?.mapNotNull { it.id.takeIf { id -> id.isNotBlank() } }?.toSet().orEmpty()
-        val allSeedArtistNames = seedTrack.artists?.mapNotNull { it.name.takeIf { name -> name.isNotBlank() } }?.toSet().orEmpty()
-
+        val allSeedArtistIds = seedTrack.artists?.mapNotNull { it.id?.takeIf { id -> id.isNotBlank() } }?.toSet().orEmpty()
+        val allSeedArtistNames = seedTrack.artists?.mapNotNull { it.name?.takeIf { name -> name.isNotBlank() } }?.toSet().orEmpty()
+        val coOccurringPlaylistIds = databaseDao.getCoOccurringPlaylistSongIds(seedTrack.videoId).toSet()
         val recentEvents = databaseDao.getPlaybackEventsByOffset(0, 500)
         val seedEvents = recentEvents.filter { it.videoId == seedTrack.videoId }
         val seedInstants = seedEvents.map { it.timestamp.toInstant(TimeZone.UTC).toEpochMilliseconds() }
@@ -130,10 +129,10 @@ class OfflineRadioRepositoryImpl(
                 0.0f
             }
 
-            val contextScore = if (seedAlbumId != null && !candidate.albumId.isNullOrBlank() && candidate.albumId == seedAlbumId) {
-                1.0f
-            } else {
-                0.0f
+            val contextScore = when {
+                seedAlbumId != null && !candidate.albumId.isNullOrBlank() && candidate.albumId == seedAlbumId -> 1.0f
+                candidate.videoId in coOccurringPlaylistIds -> 0.7f
+                else -> 0.0f
             }
 
             val affinityScore = if (maxPlayTime > 0L) {

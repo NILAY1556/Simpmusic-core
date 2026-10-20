@@ -186,6 +186,84 @@ class OfflineRadioRepositoryTest {
         }
     }
 
+    @Test
+    fun poolSmallerThanLimitStillAppliesScoring() = runBlocking {
+        val dao = FakeDatabaseDao()
+        val songRepo = FakeSongRepository(
+            downloaded = listOf(
+                createTestSong("song_stranger", "Stranger", "Stranger", totalPlayTime = 0),
+                createTestSong("song_same_artist", "Same Artist", "Artist A", totalPlayTime = 100),
+            ),
+        )
+        val cacheRepo = FakeCacheRepository()
+        val repository = OfflineRadioRepositoryImpl(dao, songRepo, cacheRepo, YouTube())
+
+        val seedTrack = createTestTrack("seed_1", "Seed Song", "Artist A")
+        // limit is 25, pool is 2. The same-artist song should still be ranked #1
+        val result = repository.buildOfflineQueue(seedTrack, emptySet(), limit = 25)
+
+        assertEquals(2, result.size)
+        assertEquals("song_same_artist", result[0].videoId)
+        assertEquals("song_stranger", result[1].videoId)
+    }
+
+    @Test
+    fun liveStreamsAndSelfSeedAreFilteredOut() = runBlocking {
+        val dao = FakeDatabaseDao()
+        val songRepo = FakeSongRepository(
+            downloaded = listOf(
+                createTestSong("seed_1", "Self Seed", "Artist A"),
+                createTestSong("live_song", "Live Broadcast", "Artist A", resultType = "LIVE"),
+                createTestSong("valid_song", "Valid Song", "Artist A"),
+            ),
+        )
+        val cacheRepo = FakeCacheRepository()
+        val repository = OfflineRadioRepositoryImpl(dao, songRepo, cacheRepo, YouTube())
+
+        val seedTrack = createTestTrack("seed_1", "Seed Song", "Artist A")
+        val result = repository.buildOfflineQueue(seedTrack, emptySet(), limit = 25)
+
+        assertEquals(1, result.size)
+        assertEquals("valid_song", result[0].videoId)
+    }
+
+    @Test
+    fun contextScorePrioritizesSameAlbumThenCoPlaylist() = runBlocking {
+        val dao = FakeDatabaseDao()
+        dao.coOccurringPlaylistSongIds = listOf("song_coplaylist")
+        val songRepo = FakeSongRepository(
+            downloaded = listOf(
+                createTestSong("song_unrelated", "Unrelated", "Stranger 1"),
+                createTestSong("song_coplaylist", "Co-playlist", "Stranger 2"),
+                createTestSong("song_same_album", "Same Album", "Stranger 3", albumId = "album_seed"),
+            ),
+        )
+        val cacheRepo = FakeCacheRepository()
+        val repository = OfflineRadioRepositoryImpl(dao, songRepo, cacheRepo, YouTube())
+
+        val seedTrack = createTestTrack("seed_1", "Seed Song", "Artist Seed", albumId = "album_seed")
+        val result = repository.buildOfflineQueue(seedTrack, emptySet(), limit = 3)
+
+        assertEquals(3, result.size)
+        assertEquals("song_same_album", result[0].videoId, "Same album should rank #1")
+        assertEquals("song_coplaylist", result[1].videoId, "Co-playlist should rank #2")
+        assertEquals("song_unrelated", result[2].videoId, "Unrelated should rank #3")
+    }
+
+    @Test
+    fun pacingNotAppliedWhenPoolUnder10() = runBlocking {
+        val dao = FakeDatabaseDao()
+        val poolSongs = (1..5).map { createTestSong("a$it", "A$it", "Artist A", totalPlayTime = (100 - it).toLong()) }
+        val songRepo = FakeSongRepository(downloaded = poolSongs)
+        val cacheRepo = FakeCacheRepository()
+        val repository = OfflineRadioRepositoryImpl(dao, songRepo, cacheRepo, YouTube())
+
+        val seedTrack = createTestTrack("seed_1", "Seed Song", "Artist A")
+        val result = repository.buildOfflineQueue(seedTrack, emptySet(), limit = 5)
+
+        // When pool < 10, all 5 songs by Artist A are allowed consecutively
+        assertEquals(5, result.size)
+    }
     private fun createTestTrack(
         videoId: String,
         title: String,
@@ -218,6 +296,7 @@ class OfflineRadioRepositoryTest {
         albumId: String? = null,
         totalPlayTime: Long = 0,
         downloadState: Int = 3,
+        resultType: String? = null,
     ): SongEntity {
         return SongEntity(
             videoId = videoId,
@@ -234,7 +313,7 @@ class OfflineRadioRepositoryTest {
             thumbnails = "https://example.com/thumb.jpg",
             videoType = "MUSIC_VIDEO_TYPE_ATV",
             category = null,
-            resultType = null,
+            resultType = resultType,
             totalPlayTime = totalPlayTime,
             downloadState = downloadState,
         )
@@ -465,9 +544,11 @@ open class FakeDatabaseDao : DatabaseDao {
     override suspend fun insertRadioSeeds(seeds: List<OfflineRadioSeedEntity>) {
         radioSeeds.addAll(seeds)
     }
-    override suspend fun pruneOldRadioSeeds(threshold: LocalDateTime)= throw NotImplementedError()
+    override suspend fun pruneOldRadioSeeds(threshold: LocalDateTime) = throw NotImplementedError()
     override fun getDownloadedAlbums(cachedIds: List<String>): Flow<List<AlbumEntity>> = throw NotImplementedError()
     override fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>> = throw NotImplementedError()
+    var coOccurringPlaylistSongIds: List<String> = emptyList()
+    override suspend fun getCoOccurringPlaylistSongIds(videoId: String): List<String> = coOccurringPlaylistSongIds
 }
 
 open class FakeSongRepository(

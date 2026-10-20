@@ -1681,4 +1681,11 @@ interface DatabaseDao {
         WHERE s.downloadState = 3 OR s.videoId IN (:cachedIds)
     """)
     fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>>
+
+    @Query("""
+        SELECT DISTINCT p2.songId FROM pair_song_local_playlist p1 
+        JOIN pair_song_local_playlist p2 ON p1.playlistId = p2.playlistId 
+        WHERE p1.songId = :videoId AND p2.songId != :videoId
+    """)
+    suspend fun getCoOccurringPlaylistSongIds(videoId: String): List<String>
 }
