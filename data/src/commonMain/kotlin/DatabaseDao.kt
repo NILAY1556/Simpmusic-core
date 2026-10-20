@@ -20,6 +20,7 @@ import com.maxrave.domain.data.entities.LocalPlaylistEntity
 import com.maxrave.domain.data.entities.LyricsEntity
 import com.maxrave.domain.data.entities.NewFormatEntity
 import com.maxrave.domain.data.entities.NotificationEntity
+import com.maxrave.domain.data.entities.OfflineRadioSeedEntity
 import com.maxrave.domain.data.entities.PairSongLocalPlaylist
 import com.maxrave.domain.data.entities.PlaylistEntity
 import com.maxrave.domain.data.entities.PodcastWithEpisodes
@@ -1657,4 +1658,27 @@ interface DatabaseDao {
         insertAutoEqEntries(entries)
         upsertAutoEqIndexMeta(meta)
     }
+
+    @Query("SELECT relatedVideoId FROM offline_radio_seed WHERE seedVideoId = :seedVideoId ORDER BY rank ASC")
+    fun getRadioSeedsForTrack(seedVideoId: String): Flow<List<String>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRadioSeeds(seeds: List<OfflineRadioSeedEntity>)
+
+    @Query("DELETE FROM offline_radio_seed WHERE fetchedAt < :threshold")
+    suspend fun pruneOldRadioSeeds(threshold: LocalDateTime)
+
+    @Query("""
+        SELECT DISTINCT a.* FROM album a
+        INNER JOIN song s ON s.albumId = a.browseId
+        WHERE s.downloadState = 1 OR s.videoId IN (:cachedIds)
+    """)
+    fun getDownloadedAlbums(cachedIds: List<String>): Flow<List<AlbumEntity>>
+
+    @Query("""
+        SELECT DISTINCT ar.* FROM artist ar
+        INNER JOIN song s ON s.artistId LIKE '%' || ar.channelId || '%' ESCAPE '\'
+        WHERE s.downloadState = 1 OR s.videoId IN (:cachedIds)
+    """)
+    fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>>
 }

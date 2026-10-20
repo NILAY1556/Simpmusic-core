@@ -20,6 +20,7 @@ import com.maxrave.domain.data.entities.LocalPlaylistEntity
 import com.maxrave.domain.data.entities.LyricsEntity
 import com.maxrave.domain.data.entities.NewFormatEntity
 import com.maxrave.domain.data.entities.NotificationEntity
+import com.maxrave.domain.data.entities.OfflineRadioSeedEntity
 import com.maxrave.domain.data.entities.PairSongLocalPlaylist
 import com.maxrave.domain.data.entities.PlaylistEntity
 import com.maxrave.domain.data.entities.PodcastsEntity
@@ -41,9 +42,9 @@ import com.maxrave.domain.data.entities.analytics.PlaybackEventEntity
         NotificationEntity::class, TranslatedLyricsEntity::class, PodcastsEntity::class, EpisodeEntity::class,
         YourYouTubePlaylistList::class, PlaybackEventEntity::class, EventArtistEntity::class,
         AutoEqEntryEntity::class, AutoEqIndexMetaEntity::class, AutoEqCurveEntity::class,
-        ArtistMotionEntity::class
+        ArtistMotionEntity::class, OfflineRadioSeedEntity::class
     ],
-    version = 27,
+    version = 28,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3), AutoMigration(
@@ -98,6 +99,10 @@ import com.maxrave.domain.data.entities.analytics.PlaybackEventEntity
         AutoMigration(26, 27),
         AutoMigration(25, 27),
         AutoMigration(24, 27),
+        // 28 adds offline_radio_seed. One new table, so Room generates the migration itself.
+        AutoMigration(27, 28),
+        AutoMigration(26, 28),
+        AutoMigration(25, 28),
     ],
 )
 @TypeConverters(Converters::class)
