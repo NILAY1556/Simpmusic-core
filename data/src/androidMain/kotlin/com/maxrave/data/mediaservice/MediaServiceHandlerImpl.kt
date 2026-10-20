@@ -66,6 +66,7 @@ import com.maxrave.domain.mediaservice.player.MediaPlayerInterface
 import com.maxrave.domain.mediaservice.player.MediaPlayerListener
 import com.maxrave.domain.repository.AnalyticsRepository
 import com.maxrave.domain.repository.LocalPlaylistRepository
+import com.maxrave.domain.repository.OfflineRadioRepository
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.repository.StreamRepository
 import com.maxrave.domain.utils.FilterState
@@ -129,6 +130,7 @@ internal class MediaServiceHandlerImpl(
     private val backgroundScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val context: Context = getKoin().get()
     override val player: MediaPlayerInterface = getKoin().get()
+    private val offlineRadioRepository: OfflineRadioRepository by lazy { getKoin().get() }
 
     @Volatile
     private var discordRPC: DiscordRPC? = null
@@ -1404,6 +1406,26 @@ internal class MediaServiceHandlerImpl(
 
     override fun loadMore() {
         if (queueData.value.queueState == QueueData.StateSource.STATE_INITIALIZING) return
+        val currentPlaylistId = _queueData.value.data.playlistId
+        if (currentPlaylistId != null && (currentPlaylistId.startsWith("offline_mix_") || currentPlaylistId.startsWith("OFFLINE_RADIO_"))) {
+            coroutineScope.launch {
+                _queueData.update { it.copy(queueState = QueueData.StateSource.STATE_INITIALIZING) }
+                val lastTrack = queueData.value.data.listTracks.lastOrNull() ?: run {
+                    _queueData.update { it.copy(queueState = QueueData.StateSource.STATE_INITIALIZED) }
+                    return@launch
+                }
+                val excludeIds = queueData.value.data.listTracks.map { it.videoId }.toSet()
+                val nextTracks = offlineRadioRepository.buildOfflineQueue(lastTrack, excludeIds, 25)
+                if (nextTracks.isNotEmpty()) {
+                    loadMoreCatalog(ArrayList(nextTracks))
+                }
+                _queueData.update {
+                    it.copy(queueState = QueueData.StateSource.STATE_INITIALIZED)
+                }
+                reorderShuffledQueue(player.getCurrentMediaTimeLine())
+            }
+            return
+        }
         // Separate local and remote data
         // Local Add Prefix to PlaylistID to differentiate between local and remote
         // Local: LC-PlaylistID
@@ -1694,7 +1716,28 @@ internal class MediaServiceHandlerImpl(
                     }
 
                     is Resource.Error -> {
-                        Logger.d("Check Related", "getRelated: ${response.message}")
+                        Logger.d("Check Related", "getRelated error: ${response.message}, attempting offline radio fallback")
+                        val lastTrack = queueData.value.data.listTracks.lastOrNull()
+                        if (lastTrack != null) {
+                            val excludeIds = queueData.value.data.listTracks.map { it.videoId }.toSet()
+                            val nextTracks = offlineRadioRepository.buildOfflineQueue(lastTrack, excludeIds, 25)
+                            if (nextTracks.isNotEmpty()) {
+                                loadMoreCatalog(ArrayList(nextTracks))
+                                _queueData.update {
+                                    it.copy(
+                                        queueState = QueueData.StateSource.STATE_INITIALIZED,
+                                        data =
+                                            it.data.copy(
+                                                playlistId = "OFFLINE_RADIO_${lastTrack.videoId}",
+                                                playlistType = PlaylistType.RADIO,
+                                                continuation = null,
+                                            ),
+                                    )
+                                }
+                                reorderShuffledQueue(player.getCurrentMediaTimeLine())
+                                return@collect
+                            }
+                        }
                         _queueData.update {
                             it.copy(
                                 queueState = QueueData.StateSource.STATE_INITIALIZED,
