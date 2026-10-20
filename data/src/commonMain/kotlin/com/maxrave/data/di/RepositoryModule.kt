@@ -14,6 +14,7 @@ import com.maxrave.data.repository.HomeRepositoryImpl
 import com.maxrave.data.repository.ImportRepositoryImpl
 import com.maxrave.data.repository.LocalPlaylistRepositoryImpl
 import com.maxrave.data.repository.LyricsCanvasRepositoryImpl
+import com.maxrave.data.repository.OfflineRadioRepositoryImpl
 import com.maxrave.data.repository.PlaylistRepositoryImpl
 import com.maxrave.data.repository.PodcastRepositoryImpl
 import com.maxrave.data.repository.SearchRepositoryImpl
@@ -33,6 +34,7 @@ import com.maxrave.domain.repository.ImportRepository
 import com.maxrave.domain.repository.LocalPlaylistRepository
 import com.maxrave.domain.repository.LyricsCanvasRepository
 import com.maxrave.domain.repository.PlaylistRepository
+import com.maxrave.domain.repository.OfflineRadioRepository
 import com.maxrave.domain.repository.PodcastRepository
 import com.maxrave.domain.repository.SearchRepository
 import com.maxrave.domain.repository.SongRepository
@@ -124,5 +126,9 @@ val repositoryModule =
         // Lazy: only the taste card in Library asks for it.
         single<TasteRepository> {
             TasteRepositoryImpl(get(), get())
+        }
+
+        single<OfflineRadioRepository> {
+            OfflineRadioRepositoryImpl(get(), get(), get(), get())
         }
     }
