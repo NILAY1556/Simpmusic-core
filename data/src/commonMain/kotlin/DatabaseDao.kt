@@ -1677,11 +1677,10 @@ interface DatabaseDao {
 
     @Query("""
         SELECT DISTINCT ar.* FROM artist ar
-        INNER JOIN song s ON s.artistId LIKE '%' || ar.channelId || '%' ESCAPE '\'
+        INNER JOIN song s ON s.artistId LIKE '%' || replace(replace(replace(ar.channelId, '\', '\\'), '_', '\_'), '%', '\%') || '%' ESCAPE '\'
         WHERE s.downloadState = 3 OR s.videoId IN (:cachedIds)
     """)
     fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>>
-
     @Query("""
         SELECT DISTINCT p2.songId FROM pair_song_local_playlist p1 
         JOIN pair_song_local_playlist p2 ON p1.playlistId = p2.playlistId 
