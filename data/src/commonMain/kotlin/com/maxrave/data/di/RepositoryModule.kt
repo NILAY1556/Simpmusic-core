@@ -15,6 +15,7 @@ import com.maxrave.data.repository.ImportRepositoryImpl
 import com.maxrave.data.repository.LocalPlaylistRepositoryImpl
 import com.maxrave.data.repository.LyricsCanvasRepositoryImpl
 import com.maxrave.data.repository.OfflineRadioRepositoryImpl
+import com.maxrave.data.repository.OfflineDashboardRepositoryImpl
 import com.maxrave.data.repository.PlaylistRepositoryImpl
 import com.maxrave.data.repository.PodcastRepositoryImpl
 import com.maxrave.data.repository.SearchRepositoryImpl
@@ -35,6 +36,7 @@ import com.maxrave.domain.repository.LocalPlaylistRepository
 import com.maxrave.domain.repository.LyricsCanvasRepository
 import com.maxrave.domain.repository.PlaylistRepository
 import com.maxrave.domain.repository.OfflineRadioRepository
+import com.maxrave.domain.repository.OfflineDashboardRepository
 import com.maxrave.domain.repository.PodcastRepository
 import com.maxrave.domain.repository.SearchRepository
 import com.maxrave.domain.repository.SongRepository
@@ -130,5 +132,9 @@ val repositoryModule =
 
         single<OfflineRadioRepository> {
             OfflineRadioRepositoryImpl(get(), get(), get(), get())
+        }
+
+        single<OfflineDashboardRepository> {
+            OfflineDashboardRepositoryImpl(get(), get(), get(), get(), get())
         }
     }

@@ -545,8 +545,10 @@ open class FakeDatabaseDao : DatabaseDao {
         radioSeeds.addAll(seeds)
     }
     override suspend fun pruneOldRadioSeeds(threshold: LocalDateTime) = throw NotImplementedError()
-    override fun getDownloadedAlbums(cachedIds: List<String>): Flow<List<AlbumEntity>> = throw NotImplementedError()
-    override fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>> = throw NotImplementedError()
+    var downloadedAlbumsList: List<AlbumEntity> = emptyList()
+    override fun getDownloadedAlbums(cachedIds: List<String>): Flow<List<AlbumEntity>> = flowOf(downloadedAlbumsList)
+    var downloadedArtistsList: List<ArtistEntity> = emptyList()
+    override fun getDownloadedArtists(cachedIds: List<String>): Flow<List<ArtistEntity>> = flowOf(downloadedArtistsList)
     var coOccurringPlaylistSongIds: List<String> = emptyList()
     override suspend fun getCoOccurringPlaylistSongIds(videoId: String): List<String> = coOccurringPlaylistSongIds
 }
