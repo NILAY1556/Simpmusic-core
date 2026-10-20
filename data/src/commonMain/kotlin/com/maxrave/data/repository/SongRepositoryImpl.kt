@@ -23,6 +23,7 @@ import com.maxrave.domain.manager.DataStoreManager
 import com.maxrave.domain.manager.DataStoreManager.Values.TRUE
 import com.maxrave.domain.mediaservice.handler.DownloadHandler
 import com.maxrave.domain.mediaservice.handler.MediaPlayerHandler
+import com.maxrave.domain.repository.OfflineRadioRepository
 import com.maxrave.domain.repository.SongRepository
 import com.maxrave.domain.utils.MusicVideoType
 import com.maxrave.domain.utils.Resource
@@ -37,8 +38,11 @@ import com.maxrave.kotlinytmusicscraper.pages.NextPage
 import com.maxrave.kotlinytmusicscraper.parser.getPlaylistContinuation
 import com.maxrave.logger.Logger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -63,6 +67,9 @@ internal class SongRepositoryImpl(
     private val localDataSource: LocalDataSource,
     private val youTube: YouTube,
 ) : SongRepository {
+    private val offlineRadioRepository: OfflineRadioRepository by lazy { getKoin().get() }
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     override fun getAllSongs(limit: Int): Flow<List<SongEntity>> =
         flow {
             emit(localDataSource.getAllSongs(limit))
@@ -386,6 +393,15 @@ internal class SongRepositoryImpl(
             downloadState,
             videoId,
         )
+        if (downloadState == DownloadState.STATE_DOWNLOADED) {
+            repositoryScope.launch {
+                runCatching {
+                    offlineRadioRepository.preSeedRadioForTrack(videoId)
+                }.onFailure { e ->
+                    Logger.w(TAG, "Pre-seeding radio failed for $videoId: ${e.message}")
+                }
+            }
+        }
     }
 
     override suspend fun insertSongInfo(songInfo: SongInfoEntity) =
