@@ -1822,6 +1822,19 @@ internal class DataStoreManagerImpl(
         }
     }
 
+    override val offlineMode =
+        settingsDataStore.data.map { preferences ->
+            preferences[OFFLINE_MODE] ?: FALSE
+        }
+
+    override suspend fun setOfflineMode(offlineMode: Boolean) {
+        withContext(Dispatchers.IO) {
+            settingsDataStore.edit { settings ->
+                settings[OFFLINE_MODE] = if (offlineMode) TRUE else FALSE
+            }
+        }
+    }
+
     companion object Settings {
         val APP_VERSION = stringPreferencesKey("app_version")
         val COOKIE = stringPreferencesKey("cookie")
@@ -1954,6 +1967,7 @@ internal class DataStoreManagerImpl(
         val AUTO_BACKUP_FREQUENCY = stringPreferencesKey("auto_backup_frequency")
         val AUTO_BACKUP_MAX_FILES = intPreferencesKey("auto_backup_max_files")
         val AUTO_BACKUP_LAST_TIME = longPreferencesKey("auto_backup_last_time")
+        val OFFLINE_MODE = stringPreferencesKey("offline_mode")
     }
 }
 

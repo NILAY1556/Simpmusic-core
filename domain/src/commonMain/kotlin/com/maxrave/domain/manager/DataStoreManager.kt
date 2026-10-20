@@ -627,6 +627,10 @@ interface DataStoreManager {
 
     suspend fun setAutoBackupLastTime(time: Long)
 
+    val offlineMode: Flow<String>
+
+    suspend fun setOfflineMode(offlineMode: Boolean)
+
     enum class ProxyType {
         PROXY_TYPE_HTTP,
         PROXY_TYPE_SOCKS,
